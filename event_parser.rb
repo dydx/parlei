@@ -1,24 +1,21 @@
+require 'listen'
 require 'nsq'
 
-events = Nsq::Consumer.new(
-  nsqlookupd: '127.0.0.1:4161',
-  topic: 'parleis',
-  channel: 'raw_events'
-)
-
-# this is going to consume events out of NSQ
-# and push them to an audit log
-
-loop do
-  if msg = events.pop_without_blocking
-    puts msg.body
-    # need to write this message to a file
-    File.open('logs/master_audit.log', 'a') do |log|
-      log.puts msg.body
-    end
-
-    msg.finish
-  else
-    sleep 0.1
-  end
+listener = Listen.to('logs') do |modified, added, removed|
+  # get the file that was modified (our audit log)
+  file = modified.first
+  # get the last line of that file (this is hackish as fuck)
+  lines = File.open(file).to_a
+  # open a connection to NSQ
+  producer = Nsq::Producer.new(
+    nsqd: '127.0.0.1:4150',
+    topic: 'events'
+  )
+  # write the changes to NSQ
+  producer.write(lines)
+  # close NSQ connection
+  producer.terminate
 end
+
+listener.start # non-blocking!
+sleep

@@ -11,9 +11,24 @@
    })
 
    fetch(request).then(function (response) {
-     console.log(response)
+     console.log(response.status)
    }).then(function () {
      form.reset()
    })
- })
+  })
+
+  let stream = new EventSource('/events')
+
+  stream.addEventListener('message', function (event) {
+    console.log('Got a Message')
+    console.log(event.data)
+  })
+
+  stream.addEventListener('open', function(e) {
+    console.log('connection opened', e)
+  }, false);
+
+  stream.addEventListener('error', function(e) {
+    console.log('Error', e)
+  }, false);
 })()

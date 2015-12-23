@@ -14,9 +14,17 @@ post '/' do
     nsqd: '127.0.0.1:4150',
     topic: 'parleis'
   )
+
   # get the post_text from the POST
   post_text = params[:post_text]
   # write to NSQ and close the connection
   producer.write(post_text)
   producer.terminate
+end
+
+get '/events', provides: 'text/event-stream' do
+  stream :keep_open do |out|
+    out.puts "testing"
+    out.flush
+  end
 end
