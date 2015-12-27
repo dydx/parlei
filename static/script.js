@@ -4,8 +4,9 @@
   let stream = new EventSource('/events')
 
   stream.addEventListener('message', function (event) {
-    console.log("Message: ", event.data)
-    document.querySelector('.posts').innerHTML = `${event.data}`
+    let data = JSON.parse("[" + event.data + "]");
+    let elements = data[0].map(function (el) { return "<li>" + el + "</li>" }).join('\n')
+    document.querySelector('.posts').innerHTML = `<ul> ${elements} </ul>`
   })
 
   let form = document.querySelector('#post_form')

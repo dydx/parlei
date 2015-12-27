@@ -14,8 +14,8 @@ class FiveLatestProjection < Event::Projection
       # and make it a tad more agnostic about where the data
       # itself comes from. Right now this is very FS specific
       log = File.open('logs/master_audit.log', 'r').to_a
-      raw_data = (log.size >= 5 ? log[log.size - 5, log.size] : log)
-      current_push = Hash[raw_data.each_with_index.map { |val, index| [index, val] } ]
+      current_push = (log.size >= 5 ? log[log.size - 5, log.size] : log)
+      # current_push = Hash[raw_data.each_with_index.map { |val, index| [index, val] } ]
       # current_push = log[log.size - 5, log.size]
 
       unless current_push == previous_push

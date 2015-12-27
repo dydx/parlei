@@ -9,7 +9,7 @@ module Event
     end
   end
 
-  class Writer
+  class Auditor
     def initialize(uri, topic, channel)
       @connection = Nsq::Consumer.new( nsqlookupd: uri, topic: topic, channel: channel )
     end
@@ -18,7 +18,7 @@ module Event
       if msg = @connection.pop
         message = msg.body
         msg.finish
-        message
+        message.delete('\n')
       else
         "waiting"
       end

@@ -1,7 +1,7 @@
 require 'nsq'
 require './event'
 
-class Writer < Event::Writer
+class Auditor < Event::Auditor
   def initialize
     super('127.0.0.1:4161', 'parleis', 'whatever')
   end
@@ -15,5 +15,5 @@ class Writer < Event::Writer
   end
 end
 
-writer = Writer.new
-writer.run
+auditor = Auditor.new
+auditor.run
