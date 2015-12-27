@@ -2,6 +2,9 @@ Parlei
 ---------
 Parlei is a very basic demonstration of my attempts to work out an event-sourced Ruby application. It uses Sinatra for a web server, NSQ for a message queue, and uses two watcher daemons to control flow of information to and from the client.
 
+> Demo
+> ![Demo](http://g.recordit.co/fpz0vP62C8.gif)
+
 -----------
 ## Boundaries
 There are two distinct boundaries in the architecture to explore:
