@@ -1,11 +1,16 @@
 (function () {
   'use strict'
 
-  let stream = new EventSource('/events')
+  let stream = new EventSource('/events/last_five')
+  let average = new EventSource('/events/average')
+
+  average.addEventListener('message', function (event) {
+    document.querySelector('.average').textContent = event.data
+  })
 
   stream.addEventListener('message', function (event) {
-    let data = JSON.parse("[" + event.data + "]");
-    let elements = data[0].map(function (el) { return "<li>" + el + "</li>" }).join('\n')
+    let data = JSON.parse( event.data );
+    let elements = data.map(function (el) { return "<li>" + el + "</li>" }).join('\n')
     document.querySelector('.posts').innerHTML = `<ul> ${elements} </ul>`
   })
 

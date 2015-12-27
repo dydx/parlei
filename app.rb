@@ -5,7 +5,7 @@ require 'nsq'
 set :public_folder, File.dirname(__FILE__) + '/static'
 set :views, File.dirname(__FILE__) + '/views'
 
-connections = []
+connections = {}
 
 get '/' do
   erb :index
@@ -25,23 +25,29 @@ post '/' do
   200
 end
 
-get '/events', provides: 'text/event-stream' do
+get '/events/:stream', provides: 'text/event-stream' do
+  if !connections.include? params[:stream]
+    connections[params[:stream]] = []
+  end
+
   consumer = Nsq::Consumer.new(
     nsqlookupd: '127.0.0.1:4161',
-    topic: 'events',
+    topic: params[:stream],
     channel: 'client-facing'
   )
+
+
   stream :keep_on do |out|
-    connections << out
+    connections[params[:stream]] << out
     loop do
       if msg = consumer.pop_without_blocking
         message = msg.body
         msg.finish
-        connections.each { |out| out << "data: #{message}\n\n" }
+        connections[params[:stream]].each { |out| out << "data: #{message}\n\n" }
       else
         sleep 0.1
       end
     end
-    out.callback { connections.delete(out) }
+    out.callback { connections[params[:stream]].delete(out) }
   end
 end
