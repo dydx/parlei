@@ -1,5 +1,5 @@
 require 'nsq'
-require './event'
+require_relative './lib/event'
 
 class Auditor < Event::Auditor
   def initialize
