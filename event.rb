@@ -18,7 +18,7 @@ module Event
       if msg = @connection.pop
         message = msg.body
         msg.finish
-        message.delete('\n')
+        message.delete("\n")
       else
         "waiting"
       end
