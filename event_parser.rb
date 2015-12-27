@@ -1,21 +1,21 @@
-require 'listen'
 require 'nsq'
 
-listener = Listen.to('logs') do |modified, added, removed|
-  # get the file that was modified (our audit log)
-  file = modified.first
-  # get the last line of that file (this is hackish as fuck)
-  lines = File.open(file).to_a
-  # open a connection to NSQ
-  producer = Nsq::Producer.new(
-    nsqd: '127.0.0.1:4150',
-    topic: 'events'
-  )
-  # write the changes to NSQ
-  producer.write(lines)
-  # close NSQ connection
-  producer.terminate
-end
+# open a write connection
+producer = Nsq::Producer.new(
+  nsqd: '127.0.0.1:4150',
+  topic: 'events'
+)
 
-listener.start # non-blocking!
-sleep
+previous_push = []
+loop do
+  log = File.open('logs/master_audit.log', 'r').to_a
+  current_push = log[log.size - 5, log.size]
+
+  unless current_push == previous_push
+    puts "new data to push!"
+    producer.write(current_push)
+    previous_push = current_push
+  end
+
+  sleep 2.0
+end
