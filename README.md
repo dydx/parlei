@@ -111,8 +111,6 @@ Adapting this "formula" to create more projection channels should be trivial
 
 From there you should be able to visit the webapp in your browser (likely at http://localhost:5300)
 
-![Screenshot](http://i.imgur.com/PGMURAi.png)
-
 Typing into the form and submitting should cause the array shown underneath to update with the five newest messages.
 
 This array can also be viewed in the browser console. 
