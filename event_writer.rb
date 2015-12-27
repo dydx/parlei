@@ -1,20 +1,19 @@
 require 'nsq'
+require './event'
 
-events = Nsq::Consumer.new(
-  nsqlookupd: '127.0.0.1:4161',
-  topic: 'parleis',
-  channel: 'whatever'
-)
+class Writer < Event::Writer
+  def initialize
+    super('127.0.0.1:4161', 'parleis', 'whatever')
+  end
 
-loop do
-  if msg = events.pop_without_blocking
-    File.open('logs/master_audit.log', 'a') do |log|
-      puts "Writing new event to audit log"
-      log.puts msg.body
+  def run
+    loop do
+      File.open('logs/master_audit.log', 'a') do |log|
+        log.puts read
+      end
     end
-
-    msg.finish
-  else
-    sleep 0.1
   end
 end
+
+writer = Writer.new
+writer.run
