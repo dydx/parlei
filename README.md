@@ -2,9 +2,6 @@ Parlei
 ---------
 Parlei is a very basic demonstration of my attempts to work out an event-sourced Ruby application. It uses Sinatra for a web server, NSQ for a message queue, and uses two watcher daemons to control flow of information to and from the client.
 
-> Demo
-> ![Demo](http://g.recordit.co/fpz0vP62C8.gif)
-
 -----------
 ## Boundaries
 There are two distinct boundaries in the architecture to explore:
@@ -28,7 +25,7 @@ Messages are then shoved into the `messages` NSQ stream. Messages are then pulle
 > CreatePostEvent, id: 5, user_id: 1, body: "yeah, totally"
 > ...
 >```
-> *Note: the password field here is in plaintext, in general it would actually be encrypted*
+> https://gist.github.com/dydx/fe6ecc64e7f675fdbb2f
 
 Whether these serialized messages are generated on the client or on the server are a matter of implementation-- as it is in my demonstration, they are generated on the server.
 
@@ -50,47 +47,74 @@ Projections can also be generated as separate processes and can pipe back into t
 
 Using a database capable of streaming, one can push updates to projections in realtime. See RethinkDB's `changefeed` feature for some inspiration about how to do this.
 
-At this point in time, my only projection is a view of the last five events:
+At this point in time, I have a simple DSL that helps me easily create projection models like so:
 
 > event_parser.rb
 > ```
-> require 'nsq'
-> require './event'
-> 
-> class FiveLatestProjection < Event::Projection
->   # There should be a more elegant way to handle this, but so far so good?
->   def initialize
->     super('127.0.0.1:4150', 'events')
->   end
-> 
->   def run
->     previous_push = []
->     loop do
->       # I'd like to keep this information somewhere else
->       # and make it a tad more agnostic about where the data
->       # itself comes from. Right now this is very FS specific
->       log = File.open('logs/master_audit.log', 'r').to_a
->       current_push = (log.size >= 5 ? log[log.size - 5, log.size] : log)
->       # current_push = Hash[raw_data.each_with_index.map { |val, index| [index, val] } ]
->       # current_push = log[log.size - 5, log.size]
-> 
->       unless current_push == previous_push
->         # this is where content is written to the queue
->         write(current_push)
-> 
->         # this prevents us from overloading the channel with old data
->         previous_push = current_push
->       end
->       sleep 2.0
->     end
->   end
-> end
-> 
-> projection = FiveLatestProjection.new
-> projection.run
+>class TotalMessages < Event::Projection
+>  stream_title 'total'
+>  filter { ->(data) { data.length } }
+>end
+
+>projector = Event::Projector.new(
+>  Nsq::Producer.new( nsqd: '127.0.0.1:4150', topic: 'logging' ),
+>  [ AverageLength.new, LastFive.new, TotalMessages.new, LongestMessage.new ]
+>)
+
+>projector.run
 > ```
 
-Adapting this "formula" to create more projection channels should be trivial
+These statements create named projections that stream their output to the message queue channel specified via the `stream_title` attribute.
+
+The `Event::Projector` is a mechanism to continuously apply the projections to the event stream as it is coming, and also facilitates the creation of snapshots.
+
+These channels are then streamed to the front-end client over Server Sent Events:
+
+> app.rb snippet
+> ```
+> get '/events/:channel', provides: 'text/event-stream' do
+> channel = params[:channel]
+>  if !settings.pool.include? channel
+>    settings.pool[channel] = []
+>  end
+
+>  consumer = Nsq::Consumer.new(
+>    nsqlookupd: '127.0.0.1:4161',
+>    topic: channel,
+>    channel: 'client-facing'
+>  )
+
+>  stream :keep_on do |out|
+>    settings.pool[channel] << out
+>    loop do
+>      if msg = consumer.pop_without_blocking
+>        message = msg.body
+>        msg.finish
+>        settings.pool[channel].each { |out| out << "data: #{message}\n\n" }
+>      else
+>        sleep 0.1
+>      end
+>    end
+>    out.callback { settings.pool[channel].delete(out) }
+>  end
+>end
+> ```
+
+And then on the client, it is as simple as:
+> script.js snippet
+> ```
+>let total = new EventSource('/events/total')
+>
+>total.addEventListener('message', function (event) {
+>  document.querySelector('.total').textContent = event.data
+>})
+
+> ```
+
+One of my TODO's is to make fetching this information in the controller to be more easy.
+
+### Aggregates
+I am doing some experimenting with collecting an aggregate
 
 ----------
 # Setup
@@ -110,6 +134,8 @@ Adapting this "formula" to create more projection channels should be trivial
 >The Foreman `Procfile` included is configured to start NSQ, the Sinatra webapp, as well as the two watcher daemons.
 
 From there you should be able to visit the webapp in your browser (likely at http://localhost:5300)
+
+![Screenshot](http://i.imgur.com/C3KEJ3B.png)
 
 Typing into the form and submitting should cause the array shown underneath to update with the five newest messages.
 
@@ -166,6 +192,7 @@ Foreman is awesome. If you aren't using it, you should.
 
 # License
 
+![](http://g.recordit.co/fpz0vP62C8.gif)
 
 >The MIT License (MIT)
 Copyright © 2015 Joshua Sandlin <<josh@thenullbyte.org>>
