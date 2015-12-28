@@ -1,17 +1,27 @@
 (function () {
   'use strict'
 
-  let stream = new EventSource('/events/last_five')
+  // I've got room for 1-2 more of these. Might be about time
+  // to consider dumping the whole update stream into one JSON
+  let total = new EventSource('/events/total')
   let average = new EventSource('/events/average')
+  let longest = new EventSource('/events/longest')
+  let last_five = new EventSource('/events/last_five')
+
+  total.addEventListener('message', function (event) {
+    document.querySelector('.total').textContent = event.data
+  })
 
   average.addEventListener('message', function (event) {
     document.querySelector('.average').textContent = event.data
   })
 
-  stream.addEventListener('message', function (event) {
-    let data = JSON.parse( event.data );
-    let elements = data.map(function (el) { return "<li>" + el + "</li>" }).join('\n')
-    document.querySelector('.posts').innerHTML = `<ul> ${elements} </ul>`
+  longest.addEventListener('message', function (event) {
+    document.querySelector('.longest').textContent = event.data
+  })
+
+  last_five.addEventListener('message', function (event) {
+    document.querySelector('.posts').textContent = event.data
   })
 
   let form = document.querySelector('#post_form')

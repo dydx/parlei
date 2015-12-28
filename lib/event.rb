@@ -1,6 +1,35 @@
 module Event
 
-  # this feels pretty good
+  class Aggregate
+    def initialize(*topics)
+      @topics = topics
+      @aggregate = {}
+    end
+
+    def collect
+      for topic in @topics
+        # I hate this
+        puts "Connecting to NSQ##{topic}..."
+        connection = Nsq::Consumer.new(
+          nsqlookupd: '127.0.0.1:4161',
+          topic: topic,
+          channel: "#{topic}_aggregate"
+        )
+
+        if msg = connection.pop
+          message = msg.body
+          msg.finish
+          @aggregate[topic] = message
+          puts "Got message #{message}..."
+          connection.terminate
+        end
+      end
+
+      # pipe this out
+      @aggregate.to_json
+    end
+  end
+
   class Projection
     def self.stream_title(name)
       define_method(:stream_title) do
@@ -12,6 +41,7 @@ module Event
       define_method(:run) do
         self.instance_eval(&block).call(
           # Still need a way to abstract this nonsense away
+          # Could this be stored / served via a repository?
           File.open('logs/master_audit.log', 'r').to_a
         )
       end
@@ -19,8 +49,7 @@ module Event
   end
 
   class Projector
-    # dependency inject an NSQ connection, as well as our Projections
-    def initialize(connection, *projections)
+    def initialize(connection, projections)
       @projections = projections
       @connection = connection
     end
@@ -34,29 +63,35 @@ module Event
         for projection in @projections
           name = projection.stream_title
           output = projection.run
-
           write(name, output)
         end
-        sleep 2.0
+        sleep 1.0
       end
     end
   end
 
-  # this, though, still needs a lot of work
-  class Auditor
-    def initialize(uri, topic, channel)
-      @connection = Nsq::Consumer.new( nsqlookupd: uri, topic: topic, channel: channel )
+  class Writer
+    def initialize(connection)
+      @connection = connection
     end
 
-    def read
+    # read messages from the queue
+    def message_from_queue
       if msg = @connection.pop
-        message = msg.body
+        message = msg.body.delete("\n")
         msg.finish
-        message.delete("\n")
-      else
-        "waiting"
+        message
       end
     end
 
+    # write the recieved messages to disc
+    def run
+      loop do
+        File.open('logs/master_audit.log', 'a') do |log|
+          log.puts message_from_queue
+        end
+        sleep 1.0
+      end
+    end
   end
 end

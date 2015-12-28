@@ -1,19 +1,12 @@
 require 'nsq'
 require_relative './lib/event'
 
-class Auditor < Event::Auditor
-  def initialize
-    super('127.0.0.1:4161', 'parleis', 'whatever')
-  end
+logwriter = Event::Writer.new(
+  Nsq::Consumer.new(
+    nsqlookupd: '127.0.0.1:4161',
+    topic: 'parleis',
+    channel: 'server-facing'
+  )
+)
 
-  def run
-    loop do
-      File.open('logs/master_audit.log', 'a') do |log|
-        log.puts read
-      end
-    end
-  end
-end
-
-auditor = Auditor.new
-auditor.run
+logwriter.run
